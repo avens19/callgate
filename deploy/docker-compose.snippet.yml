@@ -1,0 +1,29 @@
+# Paste this service block into /home/andrew/docker/docker-compose.yml,
+# alongside the other services (same shape as the existing budget-app).
+# Secrets referenced below (${VOIPMS_...}, ${HT801_...}) must be added to
+# /home/andrew/docker/.env first - see server/.env.example for every key.
+
+  callgate:
+    build: /home/andrew/git/callgate/server
+    container_name: callgate
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATA_DIR: /data
+      VOIPMS_API_USERNAME: ${VOIPMS_API_USERNAME:?set VOIPMS_API_USERNAME in .env}
+      VOIPMS_API_PASSWORD: ${VOIPMS_API_PASSWORD:?set VOIPMS_API_PASSWORD in .env}
+      VOIPMS_DID: ${VOIPMS_DID:?set VOIPMS_DID in .env}
+      VOIPMS_SUBACCOUNT: ${VOIPMS_SUBACCOUNT:?set VOIPMS_SUBACCOUNT in .env}
+      HT801_IP: ${HT801_IP:?set HT801_IP in .env}
+      HT801_ADMIN_USER: ${HT801_ADMIN_USER:?set HT801_ADMIN_USER in .env}
+      HT801_ADMIN_PASSWORD: ${HT801_ADMIN_PASSWORD:?set HT801_ADMIN_PASSWORD in .env}
+      HT801_MAC: ${HT801_MAC:?set HT801_MAC in .env}
+      HT801_DIAL_PLAN_PVALUE: ${HT801_DIAL_PLAN_PVALUE:?set HT801_DIAL_PLAN_PVALUE in .env}
+      HT801_SIP_PORT: "5060"
+      HT801_REQUIRES_EXPLICIT_REBOOT: "false"
+      APPLY_DEBOUNCE_MS: "30000"
+      CDR_POLL_INTERVAL_MS: "300000"
+      DISPLAY_TIMEZONE: "America/Edmonton"
+      PROVISIONING_ALLOWED_CIDR: "192.168.219.0/24"
+    volumes:
+      - /home/andrew/.callgate:/data

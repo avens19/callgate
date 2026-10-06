@@ -1,0 +1,26 @@
+# Paste this site block into /home/andrew/.caddy/conf/Caddyfile, alongside
+# the existing budget.andrewovens.com / requests.andrewovens.com blocks.
+# Generate the password hash first with:
+#   docker exec caddy caddy hash-password
+# and paste the result in place of <bcrypt-hash-from-caddy-hash-password>.
+#
+# /provisioning/* is exempt from basic_auth because the HT801 can't send
+# browser credentials - it's protected instead by PROVISIONING_ALLOWED_CIDR
+# inside the app, which only accepts requests from the home LAN.
+
+callgate.andrewovens.com {
+	@provisioning path /provisioning/*
+	handle @provisioning {
+		reverse_proxy callgate:3000
+	}
+	handle {
+		basic_auth {
+			andrew <bcrypt-hash-from-caddy-hash-password>
+		}
+		reverse_proxy callgate:3000 {
+			lb_try_duration 5s
+		}
+	}
+	tls /ssl/andrewovens.com/cert.pem /ssl/andrewovens.com/privkey.pem
+	log
+}
