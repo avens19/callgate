@@ -20,6 +20,15 @@ the editable list.
   each reboot the phone line. The voip.ms half applies on every sync pass;
   the HT801 is only touched (and therefore only reboots) if the actual set
   of numbers changed since the last successful apply.
+- **Active hours** (optional, one daily window each for incoming/outgoing):
+  outside the window, only numbers flagged "always allowed" still work; 911
+  is never affected by this. A per-minute watcher
+  (`schedule/watcher.ts`) checks for window transitions and only triggers a
+  sync when the effective number set actually changes, so it doesn't poll
+  voip.ms or touch the HT801 every minute. The HT801 provisioning endpoint
+  also computes the schedule-aware dial plan fresh on every device pull, so
+  the device gets the right state even on its own periodic poll, not only
+  right after an app-triggered resync.
 
 ## One-time setup required before this works for real
 

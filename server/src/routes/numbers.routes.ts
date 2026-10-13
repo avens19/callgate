@@ -25,7 +25,8 @@ numbersRouter.post('/', (req, res) => {
       throw new Error('911 is always allowed and does not need to be added');
     }
     const label = typeof req.body?.label === 'string' ? req.body.label.trim() || null : null;
-    const created = allowedNumbers.insert(number, label);
+    const alwaysAllowed = Boolean(req.body?.alwaysAllowed);
+    const created = allowedNumbers.insert(number, label, alwaysAllowed);
     requestSync();
     res.status(201).json(created);
   } catch (err) {
@@ -38,7 +39,8 @@ numbersRouter.put('/:id', (req, res) => {
     const id = Number(req.params.id);
     const number = normalizeNumber(req.body?.number);
     const label = typeof req.body?.label === 'string' ? req.body.label.trim() || null : null;
-    const updated = allowedNumbers.update(id, number, label);
+    const alwaysAllowed = Boolean(req.body?.alwaysAllowed);
+    const updated = allowedNumbers.update(id, number, label, alwaysAllowed);
     if (!updated) {
       res.status(404).json({ error: 'not found' });
       return;

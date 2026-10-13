@@ -4,7 +4,15 @@ const callLogBody = document.querySelector('#call-log-table tbody');
 const addForm = document.getElementById('add-form');
 const addLabel = document.getElementById('add-label');
 const addNumber = document.getElementById('add-number');
+const addAlwaysAllowed = document.getElementById('add-always-allowed');
 const syncNowBtn = document.getElementById('sync-now-btn');
+const scheduleForm = document.getElementById('schedule-form');
+const incomingEnabled = document.getElementById('incoming-enabled');
+const incomingStart = document.getElementById('incoming-start');
+const incomingEnd = document.getElementById('incoming-end');
+const outgoingEnabled = document.getElementById('outgoing-enabled');
+const outgoingStart = document.getElementById('outgoing-start');
+const outgoingEnd = document.getElementById('outgoing-end');
 
 const STATUS_TEXT = {
   idle: 'Up to date',
@@ -55,10 +63,26 @@ async function refreshNumbers() {
     tr.innerHTML = `
       <td>${n.label ? escapeHtml(n.label) : ''}</td>
       <td>${formatNumber(n.number)}</td>
-      <td><button class="delete-btn" data-id="${n.id}">Remove</button></td>
+      <td><input type="checkbox" class="always-allowed-toggle" ${n.always_allowed ? 'checked' : ''} /></td>
+      <td><button class="delete-btn">Remove</button></td>
     `;
+    const toggle = tr.querySelector('.always-allowed-toggle');
+    toggle.dataset.id = n.id;
+    toggle.dataset.number = n.number;
+    toggle.dataset.label = n.label || '';
+    tr.querySelector('.delete-btn').dataset.id = n.id;
     numbersBody.appendChild(tr);
   }
+}
+
+async function refreshSchedule() {
+  const s = await api('/api/schedule');
+  incomingEnabled.checked = Boolean(s.incoming_enabled);
+  incomingStart.value = s.incoming_start;
+  incomingEnd.value = s.incoming_end;
+  outgoingEnabled.checked = Boolean(s.outgoing_enabled);
+  outgoingStart.value = s.outgoing_start;
+  outgoingEnd.value = s.outgoing_end;
 }
 
 async function refreshCallLog() {
@@ -91,10 +115,15 @@ addForm.addEventListener('submit', async (e) => {
   try {
     await api('/api/numbers', {
       method: 'POST',
-      body: JSON.stringify({ number: addNumber.value, label: addLabel.value }),
+      body: JSON.stringify({
+        number: addNumber.value,
+        label: addLabel.value,
+        alwaysAllowed: addAlwaysAllowed.checked,
+      }),
     });
     addLabel.value = '';
     addNumber.value = '';
+    addAlwaysAllowed.checked = false;
     await refreshNumbers();
     await refreshStatus();
   } catch (err) {
@@ -111,6 +140,45 @@ numbersBody.addEventListener('click', async (e) => {
   await refreshStatus();
 });
 
+numbersBody.addEventListener('change', async (e) => {
+  const toggle = e.target.closest('.always-allowed-toggle');
+  if (!toggle) return;
+  try {
+    await api(`/api/numbers/${toggle.dataset.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        number: toggle.dataset.number,
+        label: toggle.dataset.label,
+        alwaysAllowed: toggle.checked,
+      }),
+    });
+    await refreshStatus();
+  } catch (err) {
+    alert(err.message);
+    toggle.checked = !toggle.checked;
+  }
+});
+
+scheduleForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api('/api/schedule', {
+      method: 'PUT',
+      body: JSON.stringify({
+        incomingEnabled: incomingEnabled.checked,
+        incomingStart: incomingStart.value,
+        incomingEnd: incomingEnd.value,
+        outgoingEnabled: outgoingEnabled.checked,
+        outgoingStart: outgoingStart.value,
+        outgoingEnd: outgoingEnd.value,
+      }),
+    });
+    await refreshStatus();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 syncNowBtn.addEventListener('click', async () => {
   syncNowBtn.disabled = true;
   try {
@@ -123,8 +191,16 @@ syncNowBtn.addEventListener('click', async () => {
   }
 });
 
+let scheduleLoaded = false;
+
 async function refreshAll() {
-  await Promise.all([refreshStatus(), refreshNumbers(), refreshCallLog()]);
+  const tasks = [refreshStatus(), refreshNumbers(), refreshCallLog()];
+  // Only load schedule once: re-overwriting the form on every poll would
+  // clobber in-progress edits before the user hits Save.
+  if (!scheduleLoaded) {
+    tasks.push(refreshSchedule().then(() => { scheduleLoaded = true; }));
+  }
+  await Promise.all(tasks);
 }
 
 refreshAll();

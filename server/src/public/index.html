@@ -14,17 +14,38 @@
 
   <main>
     <section>
+      <h2>Active hours</h2>
+      <p class="hint">Outside the window, only numbers marked "always" below still work (911 always works, regardless).</p>
+      <form id="schedule-form">
+        <div class="schedule-row">
+          <label><input type="checkbox" id="incoming-enabled" /> Restrict incoming</label>
+          <input type="time" id="incoming-start" />
+          <span>to</span>
+          <input type="time" id="incoming-end" />
+        </div>
+        <div class="schedule-row">
+          <label><input type="checkbox" id="outgoing-enabled" /> Restrict outgoing</label>
+          <input type="time" id="outgoing-start" />
+          <span>to</span>
+          <input type="time" id="outgoing-end" />
+        </div>
+        <button type="submit">Save hours</button>
+      </form>
+    </section>
+
+    <section>
       <h2>Allowed numbers</h2>
       <p class="hint">Only these numbers (plus 911, always) can call in or be called out to.</p>
       <table id="numbers-table">
         <thead>
-          <tr><th>Label</th><th>Number</th><th></th></tr>
+          <tr><th>Label</th><th>Number</th><th>Always allowed</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
       <form id="add-form">
         <input type="text" id="add-label" placeholder="Label (e.g. Grandma)" />
         <input type="tel" id="add-number" placeholder="Phone number" required />
+        <label><input type="checkbox" id="add-always-allowed" /> Always allowed</label>
         <button type="submit">Add</button>
       </form>
       <button id="sync-now-btn" type="button">Sync now</button>

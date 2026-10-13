@@ -1,19 +1,17 @@
-import crypto from 'node:crypto';
 import { config } from '../config';
 import * as allowedNumbers from '../db/allowedNumbers.repo';
 import * as syncState from '../db/syncState.repo';
+import * as schedule from '../schedule/schedule.repo';
 import * as callerIdFiltering from '../voipms/callerIdFiltering';
+import { computeEffectiveNumbers } from '../schedule/effectiveNumbers';
+import { currentTimeInZone } from '../schedule/clock';
+import { hashNumbers } from '../lib/hashNumbers';
 import { sendResyncNotify } from '../ht801/resync';
 import { triggerReboot } from '../ht801/reboot';
 
-function hashNumbers(numbers: string[]): string {
-  const sorted = [...numbers].sort();
-  return crypto.createHash('sha256').update(JSON.stringify(sorted)).digest('hex');
-}
-
 let debounceTimer: NodeJS.Timeout | null = null;
 
-/** Call after any add/edit/delete of allowed_numbers. */
+/** Call after any add/edit/delete of allowed_numbers, or a schedule transition. */
 export function requestSync(): void {
   syncState.setStatus('pending');
   if (debounceTimer) clearTimeout(debounceTimer);
@@ -37,11 +35,16 @@ export async function syncImmediately(): Promise<void> {
 async function applyPendingChanges(): Promise<void> {
   syncState.setStatus('applying');
 
-  const numbers = allowedNumbers.listNumbers();
+  const allNumbers = allowedNumbers.listAll();
+  const settings = schedule.get();
+  const nowHHMM = currentTimeInZone(config.displayTimezone);
+
+  const effectiveIncoming = computeEffectiveNumbers('incoming', settings, allNumbers, nowHHMM);
+  const effectiveOutgoing = computeEffectiveNumbers('outgoing', settings, allNumbers, nowHHMM);
 
   // voip.ms CallerID Filtering sync is cheap (no device disruption) - do it
   // every pass.
-  const result = await callerIdFiltering.syncFilters(numbers);
+  const result = await callerIdFiltering.syncFilters(effectiveIncoming);
   if (result.failed.length > 0) {
     throw new Error(
       `voip.ms CallerID Filtering sync had failures: ${result.failed.map((f) => `${f.number}: ${f.error}`).join('; ')}`
@@ -49,8 +52,9 @@ async function applyPendingChanges(): Promise<void> {
   }
 
   // The HT801 touch reboots the phone line, so only do it if the set of
-  // numbers actually changed since the last successful apply.
-  const newHash = hashNumbers(numbers);
+  // outgoing-allowed numbers actually changed since the last successful
+  // apply (whether from an edit or a schedule window opening/closing).
+  const newHash = hashNumbers(effectiveOutgoing);
   const state = syncState.get();
   if (newHash !== state.last_applied_numbers_hash) {
     await sendResyncNotify();
